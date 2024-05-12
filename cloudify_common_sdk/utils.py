@@ -20,12 +20,14 @@ import json
 import tarfile
 import zipfile
 from time import sleep
+from tempfile import mkdtemp
 from copy import copy, deepcopy
 from packaging import version
 from distutils.util import strtobool
 
 from ._compat import PY2, text_type
 from .constants import MASKED_ENV_VARS
+from .resource_downloader import untar_archive
 from .processes import process_execution, general_executor
 
 from cloudify import exceptions as cfy_exc
@@ -131,8 +133,16 @@ def get_blueprint_dir(blueprint_id=None):
         dep_id = ctx_from_import._context['deployment_id']
         ctx_from_import._context['blueprint_id'] = blueprint_id
         ctx_from_import._context['deployment_id'] = None
-        blueprint_dir = ctx_from_import.download_directory('.')
-        ctx_from_import._context['deployment_id'] = dep_id
+        try:
+            blueprint_dir = ctx_from_import.download_directory('.')
+            ctx_from_import._context['deployment_id'] = dep_id
+        except cfy_exc.HttpException:
+            ctx_from_import._context['deployment_id'] = dep_id
+            ctx_from_import.logger.error(
+                'Failed to download blueprint directory from endpoint. '
+                'Falling back to rest request.')
+            blueprint_dir = create_blueprint_dir_in_deployment_dir(
+                blueprint_id)
         if blueprint_dir and os.path.isdir(blueprint_dir):
             return blueprint_dir
         raise SDKNonRecoverableError("No blueprint directory found!")
@@ -149,6 +159,21 @@ def with_rest_client(func):
         kwargs['rest_client'] = get_rest_client()
         return func(*args, **kwargs)
     return wrapper_inner
+
+
+@with_rest_client
+def create_blueprint_dir_in_deployment_dir(blueprint_id, rest_client):
+    dirpath = mkdtemp(dir=get_node_instance_dir())
+    output_file = os.path.join(dirpath, 'blueprint.tar.gz')
+    blueprint_dir = os.path.join(
+        get_deployment_dir(ctx_from_import.deployment.id), 'blueprint')
+    mkdir_p(blueprint_dir)
+    target_file = rest_client.blueprints.download(blueprint_id, output_file)
+    tar_result = untar_archive(target_file)
+    copy_directory(tar_result, blueprint_dir)
+    remove_directory(output_file)
+    remove_directory(tar_result)
+    return blueprint_dir
 
 
 @with_rest_client
@@ -1485,14 +1510,14 @@ def get_node_instance_dir(target=False, source=False, source_path=None):
     """
     instance = get_ctx_instance(target=target, source=source)
     folder = os.path.join(
-        get_deployment_dir(ctx_from_import.deployment.id),
+        get_deployment_dir(deployment_id=ctx_from_import.deployment.id),
         instance.id
     )
     if source_path:
         folder = os.path.join(folder, source_path)
     if not os.path.exists(folder):
         mkdir_p(folder)
-    ctx_from_import.logger.debug('Value deployment_dir is {loc}.'.format(
+    ctx_from_import.logger.debug('Value node_instance_dir is {loc}.'.format(
         loc=folder))
     return folder
 
