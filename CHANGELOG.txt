@@ -1,4 +1,5 @@
 releases:
+  v0.0.132: Improve get blueprint when the manager version doesn't support it.
   v0.0.131: Fix get_blueprint_dir logic to skip fetching deployment_dir content.
   v0.0.130: Release without dependency on cfylint.
   v0.0.129: updated libraries versions for security.
