@@ -5,6 +5,7 @@ import unittest
 
 from .. import utils
 from .. import secure_property_management
+from cloudify.state import current_ctx
 
 
 class SecurePropertyTests(unittest.TestCase):
@@ -37,6 +38,7 @@ class SecurePropertyTests(unittest.TestCase):
         _ctx_deployment = mock.Mock(id='foo')
         mock_ctx = mock.Mock()
         mock_ctx.deployment = _ctx_deployment
+        current_ctx.set(ctx=mock_ctx)
 
         # Setup the mock client responses.
         nodes_mock = mock.Mock()

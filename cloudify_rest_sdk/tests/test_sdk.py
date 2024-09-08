@@ -678,8 +678,8 @@ class TestSdk(unittest.TestCase):
             self.assertEqual(
                 repr(error.exception),
                 "RecoverableResponseException(\"ConnectionError "
-                "ConnectionError('check connect',) has occurred, but flag "
-                "retry_on_connection_error is set. Retrying...\",)"
+                "ConnectionError('check connect') has occurred, but flag "
+                "retry_on_connection_error is set. Retrying...\")"
             )
 
     def test_process_pre_render(self):

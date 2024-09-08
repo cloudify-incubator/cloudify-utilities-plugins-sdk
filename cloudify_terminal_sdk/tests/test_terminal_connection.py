@@ -149,7 +149,7 @@ class TerminalTest(unittest.TestCase):
                     conn = terminal_connection.RawConnection(
                         logger="logger", log_file_name="log_file_name")
                     conn.connect("ip", "user", None, "key",
-                                 prompt_check=None,)
+                                 prompt_check=None)
 
         ssh_mock.connect.assert_called_with(
             'ip', allow_agent=False, pkey='key_value', port=22, timeout=5,
@@ -310,7 +310,7 @@ class TerminalTest(unittest.TestCase):
         self.assertEqual(
             repr(error.exception),
             'RecoverableError(\'Looks as we have error in response:  '
-            'text\\n some\\nerror\',)'
+            'text\\n some\\nerror\')'
         )
 
         # check with alive connection
