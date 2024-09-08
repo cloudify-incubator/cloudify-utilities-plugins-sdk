@@ -20,16 +20,19 @@ import json
 import tarfile
 import zipfile
 from time import sleep
-from tempfile import mkdtemp
 from copy import copy, deepcopy
 from packaging import version
 from distutils.util import strtobool
 
 from ._compat import PY2, text_type
 from .constants import MASKED_ENV_VARS
-from .resource_downloader import untar_archive
+from .resource_downloader import (
+    untar_archive,
+    unzip_archive
+)
 from .processes import process_execution, general_executor
 
+from cloudify.state import NotInContext
 from cloudify import exceptions as cfy_exc
 from cloudify.utils import get_tenant_name
 from cloudify import ctx as ctx_from_import
@@ -163,16 +166,16 @@ def with_rest_client(func):
 
 @with_rest_client
 def create_blueprint_dir_in_deployment_dir(blueprint_id, rest_client):
-    dirpath = mkdtemp(dir=get_node_instance_dir())
-    output_file = os.path.join(dirpath, 'blueprint.tar.gz')
+    target_file = rest_client.blueprints.download(blueprint_id)
+    try:
+        uncompressed_result = untar_archive(target_file)
+    except tarfile.ReadError:
+        uncompressed_result = unzip_archive(target_file)
     blueprint_dir = os.path.join(
         get_deployment_dir(ctx_from_import.deployment.id), 'blueprint')
     mkdir_p(blueprint_dir)
-    target_file = rest_client.blueprints.download(blueprint_id, output_file)
-    tar_result = untar_archive(target_file)
-    copy_directory(tar_result, blueprint_dir)
-    remove_directory(output_file)
-    remove_directory(tar_result)
+    copy_directory(uncompressed_result, blueprint_dir)
+    remove_directory(uncompressed_result)
     return blueprint_dir
 
 
@@ -748,6 +751,16 @@ def get_secret(secret_name=None, path=None, rest_client=None):
     return secret.value
 
 
+def get_deployment_id_from_ctx():
+    for ctx in [wtx_from_import, ctx_from_import]:
+        try:
+            return ctx.deployment.id
+        except NotInContext:
+            pass
+    raise NonRecoverableError(
+        'Failed to locate deployment ID in a Cloudify or Workflow Context.')
+
+
 @with_rest_client
 def get_input(input_name, path, rest_client):
     """ Get an input value for a deployment.
@@ -759,7 +772,7 @@ def get_input(input_name, path, rest_client):
     :rtype: Any JSON serializable type.
     """
     try:
-        deployment_id = wtx_from_import.deployment.id
+        deployment_id = get_deployment_id_from_ctx()
         deployment = rest_client.deployments.get(deployment_id)
         root = deployment.inputs.get(input_name)
         if not isinstance(root, text_type) and path:
@@ -1488,9 +1501,9 @@ class ResourceDoesNotExist(cfy_exc.NonRecoverableError):
 @with_rest_client
 def get_cloudify_version(rest_client):
     version = rest_client.manager.get_version()['version']
-    cloudify_version = re.findall('(\\d+.\\d+.\\d+)', version)[0]
-    ctx_from_import.logger.debug('cloudify_version: {}'
-                                 .format(cloudify_version))
+    match = re.search(r'^(?:v)?(\d+\.\d+\.\d+(?:\.\d+)?)$', version)
+    cloudify_version = match.group(1) if match else None
+    ctx_from_import.logger.debug(f'cloudify_version: {cloudify_version}')
     return cloudify_version
 
 
@@ -1771,7 +1784,9 @@ def dict_override(right=None, left=None):
     right = right or {}
     left = left or {}
     for k, v in left.items():
-        if v:
+        if v is not None and isinstance(v, bool):
+            right[k] = v
+        elif v:
             right[k] = v
     return right
 
