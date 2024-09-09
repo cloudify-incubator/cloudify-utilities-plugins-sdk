@@ -284,7 +284,7 @@ def obfuscate_passwords(obj,
         else:
             return matchobj.group(0)
 
-    if isinstance(obj, (text_type, bytes,)):
+    if isinstance(obj, (text_type, bytes)):
         result = regex_string.sub(obfuscate_value, obj)
         if isinstance(obj, text_type) and obj.endswith('\n'):
             result = result + '\n'
@@ -306,7 +306,7 @@ def obfuscate_passwords(obj,
             a_copy = deepcopy(result)
             a_copy[k] = regex_string.sub(obfuscate_value, v)
             result = a_copy
-        if isinstance(v, (dict, list,)):
+        if isinstance(v, (dict, list)):
             obfuscated_v = obfuscate_passwords(v)
             if obfuscated_v is not v:
                 a_copy = deepcopy(result)
