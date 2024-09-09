@@ -53,7 +53,7 @@ if sys.version_info.major == 3 and sys.version_info.minor == 6:
     ]
 else:
     install_requires += [
-        'fusion-common>=7.0.2',
+        'fusion-common',
         'pyyaml>=6.0.1',  # cloudinit and rest
         'GitPython>=3.1.40',  # shared download resource
         'gitdb>=4.0.11',  # shared download resource
