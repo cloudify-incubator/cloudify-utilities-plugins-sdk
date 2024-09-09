@@ -1501,10 +1501,13 @@ class ResourceDoesNotExist(cfy_exc.NonRecoverableError):
 @with_rest_client
 def get_cloudify_version(rest_client):
     version = rest_client.manager.get_version()['version']
-    match = re.search(r'^(?:v)?(\d+\.\d+\.\d+(?:\.\d+)?)$', version)
-    cloudify_version = match.group(1) if match else None
-    ctx_from_import.logger.debug(f'cloudify_version: {cloudify_version}')
-    return cloudify_version
+    pattern = r'^(?:v)?(\d+\.\d+\.\d+(?:(\.\d+)|(\.[a-z]{0,4}\d+))?)$'
+    match = re.search(pattern, version)
+    if match:
+        cloudify_version = match.group(1)
+        ctx_from_import.logger.debug(f'cloudify_version: {cloudify_version}')
+        return cloudify_version
+    return '6.4.1'
 
 
 def v1_gteq_v2(v1, v2):
